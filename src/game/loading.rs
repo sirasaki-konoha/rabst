@@ -2,7 +2,7 @@
 //! assets with Bevy's asset server, then transitions to Playing.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use bevy::asset::{AssetServer, Handle};
 use bevy::audio::AudioSource;
@@ -13,6 +13,8 @@ use crate::bms::{ChartTiming, parse_file};
 use crate::game::SelectedSong;
 use crate::game::resources::{LoadedChart, LoadedChartRes};
 use crate::game::states::GameState;
+
+const AUDIO_FALLBACK_EXTENSIONS: &[&str] = &["ogg", "wav", "mp3", "flac"];
 
 #[derive(Component)]
 pub struct LoadingUi;
@@ -63,14 +65,14 @@ pub fn enter(
         }
     };
 
-    // Load WAV assets for every referenced #WAVxx.
+    // Load audio assets for every referenced #WAVxx. Many BMS packages keep
+    // #WAV declarations even when the actual files are Ogg/Vorbis.
     for (&obj, rel) in &bms.wav_files {
-        let path = entry.dir.join(rel);
-        if path.exists() {
+        if let Some(path) = resolve_audio_path(&entry.dir, rel) {
             let handle = asset_server.load(path.to_string_lossy().to_string());
             audio_assets.handles.insert(obj.0, handle);
         } else {
-            warn!("Missing WAV: {:?}", path);
+            warn!("Missing audio: {:?}", entry.dir.join(rel));
         }
     }
 
@@ -107,7 +109,7 @@ pub fn enter(
     let wav_paths: HashMap<u32, PathBuf> = bms
         .wav_files
         .iter()
-        .map(|(&o, r)| (o.0, entry.dir.join(r)))
+        .filter_map(|(&o, r)| resolve_audio_path(&entry.dir, r).map(|path| (o.0, path)))
         .collect();
     let bmp_paths: HashMap<u32, PathBuf> = bms
         .bmp_files
@@ -161,4 +163,21 @@ pub fn exit(mut commands: Commands, query: Query<Entity, With<LoadingUi>>) {
     for e in &query {
         commands.entity(e).despawn();
     }
+}
+
+fn resolve_audio_path(dir: &Path, rel: &str) -> Option<PathBuf> {
+    let declared = dir.join(rel);
+    if declared.exists() {
+        return Some(declared);
+    }
+
+    for ext in AUDIO_FALLBACK_EXTENSIONS {
+        let mut candidate = declared.clone();
+        candidate.set_extension(ext);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    None
 }
