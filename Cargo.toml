@@ -1,0 +1,31 @@
+[package]
+name = "rabst"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = { version = "0.19", features = [
+    "bevy_winit",
+    "bevy_asset",
+    "bevy_audio",
+    "bevy_sprite",
+    "bevy_text",
+    "bevy_ui",
+    "bevy_state",
+    "bevy_scene",
+    "png",
+    "vorbis",
+    "wav",
+    "mp3",
+    "flac",
+    "default_font",
+] }
+walkdir = "2"
+anyhow = "1"
+thiserror = "2"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
